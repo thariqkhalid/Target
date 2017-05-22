@@ -41,27 +41,39 @@ def get_digit_segments(patch, model):
     
     numbers = []
     digits_im = []
+    offsets = []
     for i in range(1,nb_label+1):
         slice_x, slice_y = ndimage.find_objects(label_im==i)[0]
         digit = label_im[slice_x, slice_y]
-        digit = imresize(digit,(28,28)).astype('float32')/255
+        offsets.append(int(slice_y.start))
+        digit = np.pad(digit,(10,10),'constant',constant_values = (0,0))
+        digit = imresize(digit,(28,28),interp='nearest').astype('float64')/255.
+        digit = imrotate(digit,-25)
         digits_im.append(digit)
         digit = digit.flatten()
         numbers.append(digit)
-
-    numbers = np.asarray(numbers)
-    predictions = model.predict(numbers)
+    sorted_numbers = [x for (y,x) in sorted(zip(offsets,numbers))]
+    sorted_digits_im = [x for (y,x) in sorted(zip(offsets,digits_im))]
+    sorted_numbers = np.asarray(sorted_numbers)
+    predictions = model.predict(sorted_numbers)
+    ax = plt.subplot(121)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
     plt.suptitle("Recognized values")
-    plt.title(np.argmax(predictions,axis=1))
+    pred_number = np.argmax(predictions,axis=1).tolist()
+    final_number = [str(i) for i in pred_number]
+    disp_number = "".join(final_number)
+    plt.title(disp_number)
     plt.imshow(patch,'gray')
     plt.show()
     plt.figure(figsize=(20, 8))
-    for i in range(1,nb_label):
-        ax = plt.subplot(1,nb_label,i)
+    for i in range(nb_label):
+        ax = plt.subplot(1,nb_label,i+1)
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
         plt.suptitle("Segmented digits")
-        plt.imshow(digits_im[i])
+        plt.title(np.argmax(predictions[i]))
+        plt.imshow(sorted_digits_im[i])
         plt.gray()
     plt.show()
 
